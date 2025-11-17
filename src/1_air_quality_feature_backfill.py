@@ -11,6 +11,8 @@ from great_expectations import core as ge_core
 from mlfs import config
 from mlfs.airquality import util
 
+# Normalize the root directory path to handle execution from different subdirectories
+# This ensures the script works whether run from root, notebooks/, or airquality/ subdirectory
 root_dir = Path().absolute()
 if root_dir.parts[-1:] == ('airquality',):
     root_dir = Path(*root_dir.parts[:-1])
@@ -21,11 +23,13 @@ print("Local environment")
 
 print(f"Root dir: {root_dir}")
 
+# Add root directory to Python path to allow importing the mlfs module
 if root_dir not in sys.path:
     sys.path.append(root_dir)
     print(f"Added the following directory to the PYTHONPATH: {root_dir}")
 
 
+# Load configuration from .env file (API keys, URLs, location settings)
 settings = config.HopsworksSettings(_env_file=f"{root_dir}/.env")  # type: ignore
 
 
@@ -35,11 +39,12 @@ project = hopsworks.login()
 
 today = datetime.date.today()
 
+# Historical air quality data file - can be changed for different locations
 # csv_file=f"{root_dir}/data/tomtebo-vittervägen.csv"
 csv_file = f"{root_dir}/data/copenhagen.csv"
 util.check_file_path(csv_file)
 
-# taken from ~/.env. You can also replace settings.AQICN_API_KEY with the api key value as a string "...."
+# API key from .env file for accessing air quality data from aqicn.org
 if settings.AQICN_API_KEY is None:
     print("You need to set AQICN_API_KEY either in this cell or in ~/.env")
     sys.exit(1)
@@ -53,6 +58,7 @@ street = settings.AQICN_STREET
 if not (aqicn_url and country and city and street):
     exit()
 
+# Coordinates for weather data retrieval
 # If this API call fails (it fails in a github action), then set longitude and latitude explicitly - comment out next line
 # latitude, longitude = util.get_city_coordinates(city)
 # Uncomment this if API call to get longitude and latitude
@@ -67,6 +73,7 @@ secrets = hopsworks.get_secrets_api()
 
 if not secrets:
     exit()
+# Store API key in Hopsworks secrets for use in feature pipelines
 # Replace any existing secret with the new value
 secret = secrets.get_secret("AQICN_API_KEY")
 if secret is not None:
@@ -83,15 +90,17 @@ except hopsworks.RestAPIError:
         "It looks like the AQICN_API_KEY doesn't work for your sensor. Is the API key correct? Is the sensor URL correct?"
     )
 
+# Load historical air quality data from CSV file
 df = pd.read_csv(csv_file, parse_dates=['date'], skipinitialspace=True)
 
 
+# Extract and clean air quality data
 df_aq = df[['date', 'pm25']]
 df_aq['pm25'] = df_aq['pm25'].astype('float32')
 
-# Cast the pm25 column to be a float32 data type
 df_aq.info()
-df_aq.dropna(inplace=True)
+df_aq = df_aq.dropna()
+# Add location metadata to each row
 df_aq['country'] = country
 df_aq['city'] = city
 df_aq['street'] = street
@@ -99,14 +108,17 @@ df_aq['url'] = aqicn_url
 
 df_aq.info()
 
+# Fetch historical weather data matching the air quality data time range
 earliest_aq_date = pd.Series.min(df_aq['date'])  # type: ignore
 earliest_aq_date = earliest_aq_date.strftime('%Y-%m-%d')
 
 weather_df = util.get_historical_weather(city, earliest_aq_date, str(today), latitude, longitude)
 weather_df.info()
 
+# Define data validation rules for air quality data using Great Expectations
 aq_expectation_suite = ge_core.ExpectationSuite(expectation_suite_name="aq_expectation_suite")
 
+# PM2.5 values should be between 0 and 500 (valid range for air quality index)
 aq_expectation_suite.add_expectation(
     ge_core.ExpectationConfiguration(
         expectation_type="expect_column_min_to_be_between",
@@ -119,9 +131,11 @@ aq_expectation_suite.add_expectation(
     )
 )
 
+# Define data validation rules for weather data
 weather_expectation_suite = ge_core.ExpectationSuite(expectation_suite_name="weather_expectation_suite")
 
 
+# Helper function to add validation that weather metrics are non-negative
 def expect_greater_than_zero(col):
     weather_expectation_suite.add_expectation(
         ge_core.ExpectationConfiguration(
@@ -142,6 +156,7 @@ expect_greater_than_zero("wind_speed_10m_max")
 
 fs = project.get_feature_store()
 
+# Store sensor location information in Hopsworks secrets for use in other pipelines
 dict_obj = {
     "country": country,
     "city": city,
@@ -163,6 +178,7 @@ if secret is not None:
 secrets.create_secret("SENSOR_LOCATION_JSON", str_dict)
 
 
+# Create feature group in Hopsworks for air quality data with validation rules
 air_quality_fg = fs.get_or_create_feature_group(
     name='air_quality',
     description='Air Quality characteristics of each day',
@@ -172,8 +188,10 @@ air_quality_fg = fs.get_or_create_feature_group(
     expectation_suite=aq_expectation_suite,
 )
 
+# Insert historical air quality data into feature store
 air_quality_fg.insert(df_aq)
 
+# Add feature descriptions for better documentation in the feature store
 air_quality_fg.update_feature_description("date", "Date of measurement of air quality")
 air_quality_fg.update_feature_description(
     "country",
@@ -186,7 +204,7 @@ air_quality_fg.update_feature_description(
     "Particles less than 2.5 micrometers in diameter (fine particles) pose health risk",
 )
 
-# Get or create feature group
+# Create feature group in Hopsworks for weather data with validation rules
 weather_fg = fs.get_or_create_feature_group(
     name='weather',
     description='Weather characteristics of each day',
@@ -196,10 +214,11 @@ weather_fg = fs.get_or_create_feature_group(
     expectation_suite=weather_expectation_suite,
 )
 
-
+# Insert historical weather data into feature store
 weather_fg.insert(weather_df, wait=True)
 
 
+# Add feature descriptions for weather data
 weather_fg.update_feature_description("date", "Date of measurement of weather")
 weather_fg.update_feature_description("city", "City where weather is measured/forecast for")
 weather_fg.update_feature_description("temperature_2m_mean", "Temperature in Celsius")
