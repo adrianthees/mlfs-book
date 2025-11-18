@@ -1,5 +1,4 @@
 import datetime
-import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -208,25 +207,19 @@ def get_pm25(
 def plot_air_quality_forecast(
     city: str, street: str, df: pd.DataFrame, file_path: str, hindcast=False
 ):
-    # Set style for better-looking plots
-    plt.style.use("seaborn-v0_8-darkgrid")
-    fig, ax = plt.subplots(figsize=(12, 7), dpi=100)
-    fig.patch.set_facecolor("white")
+    fig, ax = plt.subplots(figsize=(10, 6))
 
     day = pd.to_datetime(df["date"]).dt.date
-    # Plot predicted values with improved styling
+    # Plot each column separately in matplotlib
     ax.plot(
         day,
         df["predicted_pm25"],
         label="Predicted PM2.5",
-        color="#2196F3",
-        linewidth=3,
+        color="red",
+        linewidth=2,
         marker="o",
-        markersize=8,
-        markerfacecolor="#1976D2",
-        markeredgecolor="white",
-        markeredgewidth=2,
-        zorder=3,
+        markersize=5,
+        markerfacecolor="blue",
     )
 
     # Set the y-axis to a logarithmic scale
@@ -235,15 +228,12 @@ def plot_air_quality_forecast(
     ax.get_yaxis().set_major_formatter(plt.ScalarFormatter())
     ax.set_ylim(bottom=1)
 
-    # Set the labels and title with improved styling
-    ax.set_xlabel("Date", fontsize=12, fontweight="bold")
-    ax.set_title(
-        f"PM2.5 Forecast for {city}, {street}", fontsize=16, fontweight="bold", pad=20
-    )
-    ax.set_ylabel("PM2.5 (µg/m³)", fontsize=12, fontweight="bold")
-    ax.grid(True, alpha=0.3, linestyle="--")
+    # Set the labels and title
+    ax.set_xlabel("Date")
+    ax.set_title(f"PM2.5 Predicted (Logarithmic Scale) for {city}, {street}")
+    ax.set_ylabel("PM2.5")
 
-    colors = ["#00e400", "#ffff00", "#ff7e00", "#ff0000", "#8f3f97", "#7e0023"]
+    colors = ["green", "yellow", "orange", "red", "purple", "darkred"]
     labels = [
         "Good",
         "Moderate",
@@ -254,7 +244,7 @@ def plot_air_quality_forecast(
     ]
     ranges = [(0, 49), (50, 99), (100, 149), (150, 199), (200, 299), (300, 500)]
     for color, (start, end) in zip(colors, ranges):
-        ax.axhspan(start, end, color=color, alpha=0.25, zorder=1)
+        ax.axhspan(start, end, color=color, alpha=0.3)
 
     # Add a legend for the different Air Quality Categories
     patches = [
@@ -265,9 +255,7 @@ def plot_air_quality_forecast(
         handles=patches,
         loc="upper right",
         title="Air Quality Categories",
-        fontsize=9,
-        framealpha=0.95,
-        edgecolor="gray",
+        fontsize="x-small",
     )
 
     # Aim for ~10 annotated values on x-axis, will work for both forecasts ans hindcasts
@@ -277,32 +265,25 @@ def plot_air_quality_forecast(
 
     plt.xticks(rotation=45)
 
-    if hindcast:
+    if hindcast == True:
         ax.plot(
             day,
             df["pm25"],
             label="Actual PM2.5",
-            color="#333333",
-            linewidth=3,
+            color="black",
+            linewidth=2,
             marker="^",
-            markersize=8,
-            markerfacecolor="#666666",
-            markeredgecolor="white",
-            markeredgewidth=2,
-            zorder=3,
+            markersize=5,
+            markerfacecolor="grey",
         )
+        legend2 = ax.legend(loc="upper left", fontsize="x-small")
         ax.add_artist(legend1)
 
     # Ensure everything is laid out neatly
     plt.tight_layout()
 
-    # Save the figure, overwriting any existing file with the same name
-    path = os.path.join(*file_path.split("/")[:-1])
-    if not os.path.isdir(path):
-        os.makedirs(path)
-    plt.savefig(
-        file_path, dpi=150, bbox_inches="tight", facecolor="white", edgecolor="none"
-    )
+    # # Save the figure, overwriting any existing file with the same name
+    plt.savefig(file_path)
     return plt
 
 

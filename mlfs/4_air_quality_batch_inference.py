@@ -49,7 +49,7 @@ mr = project.get_model_registry()
 # Retrieve the trained model from the model registry
 retrieved_model = mr.get_model(
     name="air_quality_xgboost_model",
-    version=1,
+    version=2,
 )
 
 retrieved_lagged_model = mr.get_model(
@@ -155,20 +155,8 @@ def inference(model, name, batch_data):
     monitoring_df = monitor_fg.filter(monitor_fg.days_before_forecast_day == 1).read()
 
     # Retrieve actual air quality measurements to compare against predictions
-    air_quality_fg = fs.get_feature_group(name=name, version=1)
+    air_quality_fg = fs.get_feature_group(name="air_quality", version=1)
     air_quality_df = air_quality_fg.read()
-
-    # If we're working with lagged data, also get PM2.5 from normal air_quality
-    if name == "air_quality_lagged":
-        normal_air_quality_fg = fs.get_feature_group(name="air_quality", version=1)
-        normal_air_quality_df = normal_air_quality_fg.read()
-        # Join the pm25 value from normal air_quality
-        air_quality_df = air_quality_df.merge(
-            normal_air_quality_df[["date", "city", "pm25"]],
-            on=["date", "city"],
-            how="left",
-            suffixes=("_lagged", ""),
-        )
 
     # Merge predictions with actual measurements for model evaluation
     outcome_df = air_quality_df[["date", "pm25"]]
