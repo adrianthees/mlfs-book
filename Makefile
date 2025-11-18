@@ -2,7 +2,6 @@
 
 include .env
 export $(shell sed 's/=.*//' .env)
-export PYTHONPATH="."
 
 .PHONY: help clean features train inference all
 
@@ -16,20 +15,20 @@ help: ## Display this help message
 ##@ Pipeline Commands
 
 clean: ## Clean Hopsworks resources
-	uv run mlfs/clean_hopsworks_resources.py
+	PYTHONPATH=. uv run mlfs/clean_hopsworks_resources.py
 
 features: ## Run feature backfill pipeline
 	@echo "Running feature backfill pipeline..."
-	uv run mlfs/1_air_quality_feature_backfill.py
+	PYTHONPATH=. uv run mlfs/1_air_quality_feature_backfill.py
 
 train: ## Run training pipeline
 	@echo "Running training pipeline..."
-	uv run mlfs/3_air_quality_training_pipeline.py
+	PYTHONPATH=. uv run mlfs/3_air_quality_training_pipeline.py
 
 inference: ## Run feature pipeline and batch inference
 	@echo "Running feature pipeline..."
-	uv run mlfs/2_air_quality_feature_pipeline.py
+	PYTHONPATH=. uv run mlfs/2_air_quality_feature_pipeline.py
 	@echo "Running batch inference..."
-	uv run mlfs/4_air_quality_batch_inference.py
+	PYTHONPATH=. uv run mlfs/4_air_quality_batch_inference.py
 
 all: features train inference  ## Run complete pipeline (features -> train -> inference)
