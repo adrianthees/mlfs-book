@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import sys
@@ -32,21 +31,6 @@ secrets = hopsworks.get_secrets_api()
 if not secrets:
     logger.error("Error when retrieving secrets from hopsworks")
     sys.exit(1)
-
-location_str = secrets.get_secret("SENSOR_LOCATION_JSON")
-if not location_str:
-    logger.error("Error when retrieving Location string from hopsworks")
-    sys.exit(1)
-location_str = location_str.value
-if not location_str:
-    logger.error("Error when extracting value string for Location string")
-    sys.exit(1)
-location = json.loads(location_str)
-
-country = location["country"]
-city = location["city"]
-street = location["street"]
-
 
 # Retrieve feature groups
 air_quality_fg = fs.get_feature_group(
@@ -150,7 +134,7 @@ def main(feature_view, name):
 
     # Generate and save hindcast plot (actual vs predicted values)
     file_path = images_dir + "/pm25_hindcast.png"
-    plot = util.plot_air_quality_forecast(city, street, df, file_path, hindcast=True)
+    plot = util.plot_air_quality_forecast(config.CITY, "", df, file_path, hindcast=True)
     plot.show()
 
     # Generate and save feature importance plot to understand which features most influence predictions

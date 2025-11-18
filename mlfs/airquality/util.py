@@ -81,6 +81,7 @@ def get_hourly_weather_forecast(city, latitude, longitude):
     # Make sure all required weather variables are listed here
     # The order of variables in hourly or daily is important to assign them correctly below
     url = "https://api.open-meteo.com/v1/ecmwf"
+    # url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": latitude,
         "longitude": longitude,
@@ -90,6 +91,7 @@ def get_hourly_weather_forecast(city, latitude, longitude):
             "wind_speed_10m",
             "wind_direction_10m",
         ],
+        # "forecast_days": 10,
     }
     responses = openmeteo.weather_api(url, params=params)
 
@@ -289,7 +291,7 @@ def plot_air_quality_forecast(
 
 def check_file_path(file_path):
     my_file = Path(file_path)
-    if my_file.is_file() == False:
+    if not my_file.is_file():
         print(f"Error. File not found at the path: {file_path} ")
     else:
         print(f"File successfully found at the path: {file_path}")

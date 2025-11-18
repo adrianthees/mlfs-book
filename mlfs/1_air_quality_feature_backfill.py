@@ -1,5 +1,4 @@
 import datetime
-import json
 import logging
 import sys
 
@@ -21,42 +20,14 @@ settings = config.HopsworksSettings(_env_file=".env")  # type: ignore
 
 project = hopsworks.login()
 
-today = datetime.date.today()
-
-# Historical air quality data file
-# csv_file=f"./data/tomtebo-vittervägen.csv"
-csv_file = "./data/copenhagen.csv"
-util.check_file_path(csv_file)
-
 # API key from .env file for accessing air quality data from aqicn.org
 if settings.AQICN_API_KEY is None:
     logger.error("You need to set AQICN_API_KEY either in this cell or in ~/.env")
     sys.exit(1)
 
 AQICN_API_KEY = settings.AQICN_API_KEY.get_secret_value()
-aqicn_url = settings.AQICN_URL
-country = settings.AQICN_COUNTRY
-city = settings.AQICN_CITY
-street = settings.AQICN_STREET
-
-if not (aqicn_url and country and city and street):
-    exit()
-
-# Coordinates for weather data retrieval
-try:
-    latitude, longitude = util.get_city_coordinates(city)
-except Exception as e:
-    # Umeå coordinates
-    # latitude = "63.80818627371923"
-    # longitude = "20.340626811846885"
-
-    # Copenhagen coordinates
-    latitude = "55.67518549863348"
-    longitude = "12.569506585991263"
-    logger.warning(f"Failed to get coordinates: {e}")
-    logger.warning(f"Falling back to default lat({latitude}) lon({longitude})")
-
 logger.info(f"Found AQICN_API_KEY: {AQICN_API_KEY}")
+
 
 secrets = hopsworks.get_secrets_api()
 
@@ -72,38 +43,44 @@ if secret is not None:
 
 secrets.create_secret("AQICN_API_KEY", AQICN_API_KEY)
 
-try:
-    aq_today_df = util.get_pm25(aqicn_url, country, city, street, today, AQICN_API_KEY)
-    aq_today_df.head()
-except hopsworks.RestAPIError:
-    logger.info(
-        "It looks like the AQICN_API_KEY doesn't work for your sensor. Is the API key correct? Is the sensor URL correct?"
-    )
 
-# Load historical air quality data from CSV file
-df = pd.read_csv(csv_file, parse_dates=["date"], skipinitialspace=True)
+today = datetime.date.today()
 
+all_aq_data = []
+all_lagged_data = []
 
-# Extract and clean air quality data
-df_aq = df[["date", "pm25"]]
-df_aq["pm25"] = df_aq["pm25"].astype("float32")
+for sensor in config.SENSORS:
+    # Load historical CSV for this sensor (if available)
+    csv_file = f"./data/{sensor['city']}-{sensor['street']}.csv"
+    util.check_file_path(csv_file)
+    df = pd.read_csv(csv_file, parse_dates=["date"], skipinitialspace=True)
+    df_aq = df.rename(columns={"median": "pm25"})
+    df_aq = df_aq[["date", "pm25"]].dropna()
+    df_aq["pm25"] = df_aq["pm25"].astype("float32")
 
-df_aq.info()
-df_aq = df_aq.dropna()
-# Add location metadata to each row
-df_aq["country"] = country
-df_aq["city"] = city
-df_aq["street"] = street
-df_aq["url"] = aqicn_url
+    # Add location metadata
+    df_aq["country"] = sensor["country"]
+    df_aq["city"] = sensor["city"]
+    df_aq["street"] = sensor["street"]
+    df_aq["url"] = sensor["aqicn_url"]
 
-df_aq.info()
+    all_aq_data.append(df_aq)
+
+# Combine all sensors
+combined_aq_df = pd.concat(all_aq_data, ignore_index=True)
+
+combined_aq_df.info()
 
 # Fetch historical weather data matching the air quality data time range
 earliest_aq_date = pd.Series.min(df_aq["date"])  # type: ignore
 earliest_aq_date = earliest_aq_date.strftime("%Y-%m-%d")
 
 weather_df = util.get_historical_weather(
-    city, earliest_aq_date, str(today), latitude, longitude
+    config.CITY,
+    earliest_aq_date,
+    str(today),
+    config.CITY_LATITUDE,
+    config.CITY_LONGITUDE,
 )
 weather_df.info()
 
@@ -152,27 +129,6 @@ expect_greater_than_zero("wind_speed_10m_max")
 
 fs = project.get_feature_store()
 
-# Store sensor location information in Hopsworks secrets for use in other pipelines
-dict_obj = {
-    "country": country,
-    "city": city,
-    "street": street,
-    "aqicn_url": aqicn_url,
-    "latitude": latitude,
-    "longitude": longitude,
-}
-
-# Convert the dictionary to a JSON string
-str_dict = json.dumps(dict_obj)
-
-# Replace any existing secret with the new value
-secret = secrets.get_secret("SENSOR_LOCATION_JSON")
-if secret is not None:
-    secret.delete()
-    logger.info("Replacing existing SENSOR_LOCATION_JSON")
-
-secrets.create_secret("SENSOR_LOCATION_JSON", str_dict)
-
 
 # Create feature group in Hopsworks for air quality data with validation rules
 air_quality_fg = fs.get_or_create_feature_group(
@@ -185,7 +141,7 @@ air_quality_fg = fs.get_or_create_feature_group(
 )
 
 # Insert historical air quality data into feature store
-air_quality_fg.insert(df_aq)
+air_quality_fg.insert(combined_aq_df)
 
 # Add feature descriptions for better documentation in the feature store
 air_quality_fg.update_feature_description("date", "Date of measurement of air quality")

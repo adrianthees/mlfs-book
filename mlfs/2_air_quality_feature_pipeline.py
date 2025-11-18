@@ -1,5 +1,4 @@
 import datetime
-import json
 import logging
 import sys
 
@@ -35,24 +34,6 @@ if not AQICN_API_KEY:
     logger.error("Error when extracting value string for AQICN_API_KEY")
     sys.exit(1)
 
-location_str = secrets.get_secret("SENSOR_LOCATION_JSON")
-if not location_str:
-    logger.error("Error when retrieving Location string from hopsworks")
-    sys.exit(1)
-location_str = location_str.value
-if not location_str:
-    logger.error("Error when extracting value string for Location string")
-    sys.exit(1)
-location = json.loads(location_str)
-
-# Extract location details from the stored JSON
-country = location["country"]
-city = location["city"]
-street = location["street"]
-aqicn_url = location["aqicn_url"]
-latitude = location["latitude"]
-longitude = location["longitude"]
-
 today = datetime.date.today()
 
 # Retrieve feature groups
@@ -65,15 +46,30 @@ weather_fg = fs.get_feature_group(
     version=1,
 )
 
+all_aq_today = []
 
-# Fetch today's air quality measurement from the AQICN API
-aq_today_df = util.get_pm25(aqicn_url, country, city, street, today, AQICN_API_KEY)
+for sensor in config.SENSORS:
+    try:
+        aq_today_df = util.get_pm25(
+            sensor["aqicn_url"],
+            sensor["country"],
+            sensor["city"],
+            sensor["street"],
+            today,
+            AQICN_API_KEY,
+        )
+        all_aq_today.append(aq_today_df)
+    except Exception as e:
+        logger.warning(f"Failed to get data for {sensor['street']}: {e}")
 
-aq_today_df.info()
-air_quality_fg.insert(aq_today_df)
+if all_aq_today:
+    combined_aq_df = pd.concat(all_aq_today, ignore_index=True)
+    air_quality_fg.insert(combined_aq_df)
 
 # Get hourly weather forecast data
-hourly_df = util.get_hourly_weather_forecast(city, latitude, longitude)
+hourly_df = util.get_hourly_weather_forecast(
+    config.CITY, config.CITY_LATITUDE, config.CITY_LONGITUDE
+)
 hourly_df = hourly_df.set_index("date")
 
 # Convert hourly forecast to daily by extracting only midday (12:00) values
@@ -83,7 +79,7 @@ daily_df = daily_df.reset_index()
 # Normalize date to remove time component
 daily_df["date"] = pd.to_datetime(daily_df["date"]).dt.date
 daily_df["date"] = pd.to_datetime(daily_df["date"])
-daily_df["city"] = city
+daily_df["city"] = config.CITY
 
 
 daily_df.info()
