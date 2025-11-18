@@ -1,83 +1,34 @@
-#        conda create -n mlfs python==3.11	
-#        conda activate mlsfs
-#	conda install twofish clang -y
+.DEFAULT_GOAL := help
 
 include .env
 export $(shell sed 's/=.*//' .env)
-	
-check-venv:
-	@if [ -n "$$CONDA_DEFAULT_ENV" ]; then \
-		echo "You are in a Conda environment: $$CONDA_DEFAULT_ENV"; \
-	elif python -c 'import sys; exit(0 if hasattr(sys, "real_prefix") or (hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix) else 1)'; then \
-		echo "You are running in a Python virtual environment."; \
-	else \
-		echo "No virtual environment or Conda environment detected. Please create and activate one first, then re-'make install'"; \
-		exit 1; \
-	fi 
 
-install: check-venv
-	pip install -r requirements.txt
+.PHONY: help clean features train inference all
 
-install-recommender: check-venv
-	pip install -r requirements-llm.txt
+##@ Help
 
-cc-start-ui:
-	python -m streamlit streamlit_app.py
- 
+help: ## Display this help message
+	@echo "Air Quality ML Pipeline - Makefile Commands"
+	@echo ""
+	@awk 'BEGIN {FS = ":.*##"; printf "Usage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-cc-clean:
-	python mlfs/clean_hopsworks_resources.py cc
+##@ Pipeline Commands
 
-cc-datagen:
-	ipython notebooks/ccfraud/0-data-generation-with-polars.ipynb
+clean: ## Clean Hopsworks resources
+	uv run mlfs/clean_hopsworks_resources.py
 
-cc-gen-kafka:
-	ipython notebooks/ccfraud/transactions_synthetic_kafka_generator.ipynb
+features: ## Run feature backfill pipeline
+	@echo "Running feature backfill pipeline..."
+	uv run src/1_air_quality_feature_backfill.py
 
-cc-features:
-	ipython notebooks/ccfraud/1-batch-polars-feature-pipeline.ipynb
+train: ## Run training pipeline
+	@echo "Running training pipeline..."
+	uv run src/3_air_quality_training_pipeline.py
 
-cc-streaming-features:
-	ipython notebooks/ccfraud/1-streaming-feature-pipeline-feldera.ipynb
+inference: ## Run feature pipeline and batch inference
+	@echo "Running feature pipeline..."
+	uv run src/2_air_quality_feature_pipeline.py
+	@echo "Running batch inference..."
+	uv run src/4_air_quality_batch_inference.py
 
-cc-train:
-	ipython notebooks/ccfraud/
-
-cc-deploy:
-	ipython notebooks/ccfraud/
-
-cc-all: cc-datagen cc-features cc-streaming-features cc-train cc-deploy
-
-aq-clean:
-	python mlfs/clean_hopsworks_resources.py aq
-
-aq-features:
-	ipython notebooks/airquality/1_air_quality_feature_backfill.ipynb
-
-aq-train:
-	ipython notebooks/airquality/3_air_quality_training_pipeline.ipynb
-
-aq-inference:
-	ipython notebooks/airquality/2_air_quality_feature_pipeline.ipynb
-	ipython notebooks/airquality/4_air_quality_batch_inference.ipynb
-
-aq-llm:
-	ipython notebooks/airquality/5_function_calling.ipynb
-
-aq-all: aq-features aq-train aq-inference
-
-titanic-clean:
-	python mlfs/clean_hopsworks_resources.py titanic
-
-titanic-features:
-	ipython notebooks/titanic/1-titanic-feature-group-backfill.ipynb
-
-titanic-train:
-	ipython notebooks/titanic/2-titanic-training-pipeline.ipynb
-
-titanic-inference:
-	ipython notebooks/titanic/scheduled-titanic-feature-pipeline-daily.ipynb
-	ipython notebooks/titanic/scheduled-titanic-batch-inference-daily.ipynb
-
-titanic-all: titanic-features titanic-train titanic-inference
-
+all: features train inference  ## Run complete pipeline (features -> train -> inference)

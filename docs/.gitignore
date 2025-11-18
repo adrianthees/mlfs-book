@@ -1,0 +1,19 @@
+# Jekyll build artifacts
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+
+# Bundler
+.bundle/
+vendor/
+
+# macOS
+.DS_Store
+
+# Cache
+.cache/
+
+# Local development
+*.lock
+Gemfile.lock

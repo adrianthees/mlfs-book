@@ -1,10 +1,11 @@
+import os
 from enum import Enum
 from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import os
+
 
 class FraudDatasetSize(Enum):
     LARGE = "LARGE"
@@ -14,11 +15,9 @@ class FraudDatasetSize(Enum):
 
 class HopsworksSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file='.env',
-        env_file_encoding='utf-8',
-        extra='ignore'
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
-    
+
     MLFS_DIR: Path = Path(__file__).parent
 
     # For hopsworks.login(), set as environment variables if they are not already set as env variables
@@ -32,12 +31,11 @@ class HopsworksSettings(BaseSettings):
     AQICN_CITY: str | None = None
     AQICN_STREET: str | None = None
     AQICN_URL: str | None = None
-    
+
     # Other API Keys
-    FELDERA_API_KEY: SecretStr | None = None    
+    FELDERA_API_KEY: SecretStr | None = None
     OPENAI_API_KEY: SecretStr | None = None
     OPENAI_MODEL_ID: str = "gpt-4o-mini"
-
 
     # Feature engineering
     FRAUD_DATA_SIZE: FraudDatasetSize = FraudDatasetSize.SMALL
@@ -69,13 +67,15 @@ class HopsworksSettings(BaseSettings):
         # Set environment variables if not already set
         if os.getenv("HOPSWORKS_API_KEY") is None:
             if self.HOPSWORKS_API_KEY is not None:
-                os.environ['HOPSWORKS_API_KEY'] = self.HOPSWORKS_API_KEY.get_secret_value()
+                os.environ["HOPSWORKS_API_KEY"] = (
+                    self.HOPSWORKS_API_KEY.get_secret_value()
+                )
         if os.getenv("HOPSWORKS_PROJECT") is None:
             if self.HOPSWORKS_PROJECT is not None:
-                os.environ['HOPSWORKS_PROJECT'] = self.HOPSWORKS_PROJECT
+                os.environ["HOPSWORKS_PROJECT"] = self.HOPSWORKS_PROJECT
         if os.getenv("HOPSWORKS_HOST") is None:
             if self.HOPSWORKS_HOST is not None:
-                os.environ['HOPSWORKS_HOST'] = self.HOPSWORKS_HOST
+                os.environ["HOPSWORKS_HOST"] = self.HOPSWORKS_HOST
 
         # --- Check required .env values ---
         missing = []
@@ -106,6 +106,6 @@ class HopsworksSettings(BaseSettings):
 
         if missing:
             raise ValueError(
-                "The following required settings are missing from your environment (.env or system):\n  " +
-                "\n  ".join(missing)
-            )    
+                "The following required settings are missing from your environment (.env or system):\n  "
+                + "\n  ".join(missing)
+            )

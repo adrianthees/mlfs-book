@@ -1,4 +1,15 @@
-#theme: jekyll-theme-minimal
-#title: Building ML Systems Book Dashboards
-#description: Dashboards for ML Systems built from exmaples in the O'Reilly book
-#logo: /titanic/assets/img/logo.png
+theme: jekyll-theme-minimal
+title: Air Quality Forecasting
+description: PM2.5 predictions using machine learning
+show_downloads: false
+repository: adrianthees/mlfs-book
+baseurl: /mlfs-book
+url: https://adrianthees.github.io
+
+# Custom CSS
+plugins:
+  - jekyll-relative-links
+
+# Include custom CSS in head
+head_scripts:
+  - /assets/css/custom.css
