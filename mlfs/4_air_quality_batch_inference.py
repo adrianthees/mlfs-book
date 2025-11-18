@@ -203,7 +203,7 @@ if __name__ == "__main__":
     # Retrieve the trained models from the model registry
     retrieved_model = mr.get_model(
         name="air_quality_xgboost_model",
-        version=2,
+        version=1,
     )
 
     retrieved_lagged_model = mr.get_model(

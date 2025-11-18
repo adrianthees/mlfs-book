@@ -1,6 +1,3 @@
-# Sensor Lundemosen, Greve Strand, Denmark (Citizen Science project sensor.community/78298)
-# https://aqicn.org/station/@370306/
-# Daily pm25
 date,min,max,median,q1,q3,stdev,count
 2023-02-02T00:00:00.000Z,1.65,14.07,5.95,2.7,10.14,3.793,145
 2023-02-03T00:00:00.000Z,1.38,2.92,1.9,1.7,2.13,0.331,126

@@ -54,8 +54,9 @@ for sensor in config.SENSORS:
     csv_file = f"./data/{sensor['city']}-{sensor['street']}.csv"
     util.check_file_path(csv_file)
     df = pd.read_csv(csv_file, parse_dates=["date"], skipinitialspace=True)
-    df_aq = df.rename(columns={"median": "pm25"})
-    df_aq = df_aq[["date", "pm25"]].dropna()
+    if "median" in df.columns:
+        df = df.rename(columns={"median": "pm25"})
+    df_aq = df[["date", "pm25"]].dropna()
     df_aq["pm25"] = df_aq["pm25"].astype("float32")
 
     # Add location metadata

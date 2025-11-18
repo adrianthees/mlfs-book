@@ -59,7 +59,3 @@ The Goal of this lab was to build a serverless AI-System that predicts the Air Q
 - Creates forecast plots (7-10 days ahead)
 - Creates hindcast plots (predictions vs. actual)
 - Uploads results to Hopsworks and GitHub Pages
-
-## Comparison Normal - Lagged - Multi-Sensor
-
-TODO
