@@ -19,16 +19,16 @@ clean: ## Clean Hopsworks resources
 
 features: ## Run feature backfill pipeline
 	@echo "Running feature backfill pipeline..."
-	uv run src/1_air_quality_feature_backfill.py
+	uv run mlfs/1_air_quality_feature_backfill.py
 
 train: ## Run training pipeline
 	@echo "Running training pipeline..."
-	uv run src/3_air_quality_training_pipeline.py
+	uv run mlfs/3_air_quality_training_pipeline.py
 
 inference: ## Run feature pipeline and batch inference
 	@echo "Running feature pipeline..."
-	uv run src/2_air_quality_feature_pipeline.py
+	uv run mlfs/2_air_quality_feature_pipeline.py
 	@echo "Running batch inference..."
-	uv run src/4_air_quality_batch_inference.py
+	uv run mlfs/4_air_quality_batch_inference.py
 
 all: features train inference  ## Run complete pipeline (features -> train -> inference)

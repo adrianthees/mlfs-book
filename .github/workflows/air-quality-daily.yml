@@ -26,6 +26,7 @@ jobs:
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
         run: |
+          export PYTHONPATH="."
           echo "HOPSWORKS_API_KEY=$HOPSWORKS_API_KEY" > .env
           make inference
 
