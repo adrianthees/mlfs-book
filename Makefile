@@ -2,6 +2,7 @@
 
 include .env
 export $(shell sed 's/=.*//' .env)
+export PYTHONPATH="."
 
 .PHONY: help clean features train inference all
 
